@@ -59,7 +59,6 @@ mega-dashboard
 └── pom.xml
 
 
----
 
 ## 🐳 Ambiente com Docker
 
