@@ -47,31 +47,18 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Em dev: libera só o Angular
-        config.setAllowedOrigins(List.of("http://localhost:4200"));
-        // Se for usar credenciais (cookies), mantenha true.
+        // Em DEV: libera geral mesmo
+        config.setAllowedOriginPatterns(List.of("*")); // em vez de setAllowedOrigins
         config.setAllowCredentials(true);
-
-        // Métodos permitidos
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-
-        // Headers que o front pode mandar
-        config.setAllowedHeaders(List.of(
-                "Authorization",
-                "Cache-Control",
-                "Content-Type",
-                "X-Requested-With",
-                "X-Tenant-ID"
-        ));
-
-        // Headers que o browser pode ler da resposta
-        config.setExposedHeaders(List.of(
-                "Authorization"
-        ));
+        config.setAllowedHeaders(List.of("*")); // libera qualquer header
+        config.setExposedHeaders(List.of("*")); // libera leitura de qualquer header da resposta
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // aplica para todas as rotas
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
+
+
 }
