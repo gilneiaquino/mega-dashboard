@@ -1,5 +1,6 @@
 package br.com.megadashboard.config;
 
+import br.com.megadashboard.security.JwtAuthenticationFilter;
 import br.com.megadashboard.security.TenantFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,9 +26,12 @@ import java.util.List;
 public class SecurityConfig {
 
     private final TenantFilter tenantFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(TenantFilter tenantFilter) {
+    public SecurityConfig(TenantFilter tenantFilter,
+                          JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.tenantFilter = tenantFilter;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
@@ -44,20 +48,20 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login").permitAll()
                         .anyRequest().authenticated()
                 )
-                // 🔹 Aqui o filtro que repõe o TenantContext
-                .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class);
+                // 1) primeiro carrega o tenant no contexto
+                .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class)
+                // 2) depois valida o JWT e autentica o usuário
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // 🔹 AuthenticationManager pro AuthController.authenticate(...)
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
             throws Exception {
         return configuration.getAuthenticationManager();
     }
 
-    // 🔹 BCrypt pra bater com a senha da tabela usuario
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
