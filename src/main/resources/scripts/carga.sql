@@ -17,3 +17,8 @@ VALUES (
     (SELECT id FROM tenant WHERE codigo = 'empresa-x'),
     1
 );
+
+INSERT INTO operacao (data_operacao, valor, descricao, tenant_id)
+VALUES
+    ('2025-01-10', 1500.00, 'Operação teste', 1),
+    ('2025-02-20', 2500.00, 'Operação cliente X', 1);
