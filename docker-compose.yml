@@ -1,5 +1,4 @@
 services:
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -63,6 +62,7 @@ services:
       - mysql
     ports:
       - "8080:8080"
+      - "5005:5005"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/megadashboard?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
       SPRING_DATASOURCE_USERNAME: megadashboard
