@@ -2,11 +2,9 @@ package br.com.megadashboard.controller.dto.dashboard;
 
 import java.util.List;
 
-public class DashboardResponse {
-    public Long id;
+public class DashboardRequest {
     public String nome;
     public String descricao;
     public Boolean ativo;
-    public String tenantCodigo;
-    public List<DashboardItemResponse> itens;
+    public List<DashboardItemRequest> itens;
 }

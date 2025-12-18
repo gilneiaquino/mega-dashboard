@@ -1,47 +1,86 @@
 package br.com.megadashboard.service;
 
-import br.com.megadashboard.controller.dto.dashboard.*;
+import br.com.megadashboard.api.mapper.DashboardMapper;
+import br.com.megadashboard.controller.dto.dashboard.DashboardRequest;
+import br.com.megadashboard.controller.dto.dashboard.DashboardResponse;
+import br.com.megadashboard.controller.dto.dashboard.DashboardResumoResponse;
+import br.com.megadashboard.core.NotFoundException;
+import br.com.megadashboard.model.Dashboard;
+import br.com.megadashboard.repository.DashboardRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DashboardService {
 
-    public DashboardResponse montarDashboard(String tenant) {
+    private final DashboardRepository repo;
 
-        BigDecimal fator = switch (tenant) {
-            case "empresa-x" -> BigDecimal.valueOf(1.0);
-            case "empresa-y" -> BigDecimal.valueOf(1.5);
-            default -> BigDecimal.valueOf(0.8);
-        };
+    public DashboardService(DashboardRepository repo) {
+        this.repo = repo;
+    }
 
-        List<PieItem> carteiraFisica = List.of(
-                new PieItem("Adimplente", BigDecimal.valueOf(120).multiply(fator)),
-                new PieItem("Inadimplente", BigDecimal.valueOf(30).multiply(fator))
-        );
+    @Transactional
+    public DashboardResponse criar(DashboardRequest request, String tenantCodigo) {
+        validarCriacao(request);
 
-        List<PieItem> carteiraFinanceira = List.of(
-                new PieItem("Adimplente", BigDecimal.valueOf(150_000).multiply(fator)),
-                new PieItem("Inadimplente", BigDecimal.valueOf(25_000).multiply(fator))
-        );
+        Dashboard entity = DashboardMapper.toEntity(request, tenantCodigo);
 
-        List<BarItem> evolucao = List.of(
-                new BarItem("Jan", List.of(
-                        new BarSeriesItem("Contratos", BigDecimal.valueOf(10).multiply(fator)),
-                        new BarSeriesItem("Valor (R$ mil)", BigDecimal.valueOf(80).multiply(fator))
-                )),
-                new BarItem("Fev", List.of(
-                        new BarSeriesItem("Contratos", BigDecimal.valueOf(15).multiply(fator)),
-                        new BarSeriesItem("Valor (R$ mil)", BigDecimal.valueOf(120).multiply(fator))
-                )),
-                new BarItem("Mar", List.of(
-                        new BarSeriesItem("Contratos", BigDecimal.valueOf(20).multiply(fator)),
-                        new BarSeriesItem("Valor (R$ mil)", BigDecimal.valueOf(160).multiply(fator))
-                ))
-        );
+        // OBS: o mapper já faz item.setDashboard(dashboard)
+        Dashboard salvo = repo.save(entity);
 
-        return new DashboardResponse(carteiraFisica, carteiraFinanceira, evolucao);
+        return DashboardMapper.toResponse(salvo);
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardResponse buscarPorId(Long id, String tenantCodigo) {
+        Dashboard d = repo.findByIdAndTenantCodigo(id, tenantCodigo)
+                .orElseThrow(() -> new NotFoundException("Dashboard não encontrado"));
+        return DashboardMapper.toResponse(d);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<DashboardResumoResponse> listar(String tenantCodigo, String nome, Pageable pageable) {
+        Page<Dashboard> page = (nome == null || nome.isBlank())
+                ? repo.findByTenantCodigo(tenantCodigo, pageable)
+                : repo.findByTenantCodigoAndNomeContainingIgnoreCase(tenantCodigo, nome.trim(), pageable);
+
+        return page.map(DashboardMapper::toResumoResponse);
+    }
+
+    private void validarCriacao(DashboardRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Body obrigatório");
+        }
+
+        if (request.nome == null || request.nome.trim().isEmpty()) {
+            throw new IllegalArgumentException("nome é obrigatório");
+        }
+
+        if (request.itens == null || request.itens.isEmpty()) {
+            throw new IllegalArgumentException("itens é obrigatório");
+        }
+
+        request.itens.forEach(i -> {
+            if (i == null) {
+                throw new IllegalArgumentException("item do dashboard não pode ser nulo");
+            }
+            if (i.titulo == null || i.titulo.trim().isEmpty()) {
+                throw new IllegalArgumentException("titulo do item é obrigatório");
+            }
+            if (i.tipo == null) {
+                throw new IllegalArgumentException("tipo do item é obrigatório");
+            }
+            if (i.relatorioId == null) {
+                throw new IllegalArgumentException("relatorioId do item é obrigatório");
+            }
+            if (i.colunaRotulo == null || i.colunaRotulo.trim().isEmpty()) {
+                throw new IllegalArgumentException("colunaRotulo é obrigatória");
+            }
+            if (i.colunaValor == null || i.colunaValor.trim().isEmpty()) {
+                throw new IllegalArgumentException("colunaValor é obrigatória");
+            }
+        });
     }
 }

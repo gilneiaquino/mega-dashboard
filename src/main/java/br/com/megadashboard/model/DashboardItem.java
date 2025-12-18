@@ -1,9 +1,13 @@
 package br.com.megadashboard.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "dashboard_item")
+@Getter
+@Setter
 public class DashboardItem {
 
     @Id
