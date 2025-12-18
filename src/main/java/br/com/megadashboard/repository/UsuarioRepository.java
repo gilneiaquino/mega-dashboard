@@ -9,4 +9,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     // login + tenant.codigo
     Optional<Usuario> findByLoginAndTenant_CodigoAndAtivoTrue(String login, String tenantCodigo);
+
+    Optional<Usuario> findByLoginAndAtivoTrue(String login);
+
 }
