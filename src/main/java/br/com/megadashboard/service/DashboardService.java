@@ -1,23 +1,28 @@
 package br.com.megadashboard.service;
 
 import br.com.megadashboard.api.mapper.DashboardMapper;
-import br.com.megadashboard.controller.dto.dashboard.DashboardRequest;
-import br.com.megadashboard.controller.dto.dashboard.DashboardResponse;
-import br.com.megadashboard.controller.dto.dashboard.DashboardResumoResponse;
+import br.com.megadashboard.controller.dto.dashboard.*;
 import br.com.megadashboard.core.NotFoundException;
 import br.com.megadashboard.model.Dashboard;
+import br.com.megadashboard.model.DashboardCard;
+import br.com.megadashboard.repository.DashboardCardRepository;
 import br.com.megadashboard.repository.DashboardRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+
 @Service
 public class DashboardService {
 
     private final DashboardRepository repo;
+    private final DashboardCardRepository dashboardCardRepository;
 
-    public DashboardService(DashboardRepository repo) {
+    public DashboardService(DashboardRepository repo, DashboardCardRepository dashboardCardRepository) {
+        this.dashboardCardRepository = dashboardCardRepository;
         this.repo = repo;
     }
 
@@ -83,4 +88,37 @@ public class DashboardService {
             }
         });
     }
+
+    public DashboardRenderResponse render(Long dashboardId, String tenant) {
+        var cards = dashboardCardRepository
+                .findByDashboardIdAndTenantOrderByOrdemAsc(dashboardId, tenant);
+
+        var responses = cards.stream()
+                .map(card -> CardResponse.builder()
+                        .id("card_" + card.getId())
+                        .tipo(card.getTipo())
+                        .titulo(card.getTitulo())
+                        .ordem(card.getOrdem())
+                        .colSpan(card.getColSpan())
+                        .data(renderCardData(card, tenant)) // aqui entra o “motor”
+                        .build()
+                ).toList();
+
+        return DashboardRenderResponse.builder()
+                .dashboardId(dashboardId)
+                .titulo("Visão Geral (" + tenant + ")")
+                .cards(responses)
+                .build();
+    }
+
+    private Map<String, Object> renderCardData(DashboardCard card, String tenant) {
+        return switch (card.getTipo()) {
+            case KPI -> Map.of("valor", 12345, "variacaoPct", 2.3);
+            case CHART_BAR -> Map.of(
+                    "labels", List.of("Ativo", "Atraso", "Liquidado"),
+                    "series", List.of(Map.of("name", "Qtd", "values", List.of(10, 5, 20)))
+            );
+        };
+    }
+
 }

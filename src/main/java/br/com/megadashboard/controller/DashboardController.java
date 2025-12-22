@@ -49,43 +49,11 @@ public class DashboardController {
         String tenant = TenantContext.getTenant();
         return dashboardService.listar(tenant, nome, pageable);
     }
- 
+
     @GetMapping("/{id}/render")
     public DashboardRenderResponse render(@PathVariable Long id) {
         String tenant = TenantContext.getTenant();
-
-        // Mock inicial (Sprint 4): retorna cards fixos já no formato final
-        return DashboardRenderResponse.builder()
-                .dashboardId(id)
-                .titulo("Visão Geral (" + tenant + ")")
-                .cards(List.of(
-                        CardResponse.builder()
-                                .id("kpi_total")
-                                .tipo(CardTipo.KPI)
-                                .titulo("Total")
-                                .ordem(1)
-                                .colSpan(3)
-                                .data(Map.of(
-                                        "valor", 12345,
-                                        "variacaoPct", 2.3
-                                ))
-                                .build(),
-
-                        CardResponse.builder()
-                                .id("grafico_carteira")
-                                .tipo(CardTipo.CHART_BAR)
-                                .titulo("Carteira por Situação")
-                                .ordem(2)
-                                .colSpan(6)
-                                .data(Map.of(
-                                        "labels", List.of("Ativo", "Atraso", "Liquidado"),
-                                        "series", List.of(
-                                                Map.of("name", "Qtd", "values", List.of(10, 5, 20))
-                                        )
-                                ))
-                                .build()
-                ))
-                .build();
+        return dashboardService.render(id, tenant);
     }
 
 }

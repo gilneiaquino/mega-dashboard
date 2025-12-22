@@ -1,16 +1,15 @@
 package br.com.megadashboard.controller.dto.dashboard;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.Map;
 
-@Data
+
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Setter
+@Getter
 public class CardResponse {
     private String id;
     private CardTipo tipo;
