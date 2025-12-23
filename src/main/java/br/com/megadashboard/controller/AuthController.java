@@ -29,20 +29,17 @@ public class AuthController {
         this.jwtService = jwtService;
         this.usuarioRepository = usuarioRepository;
     }
-
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-
-        String tenant = TenantContext.getTenant();
-        if (tenant == null) {
-            return ResponseEntity.badRequest().build(); // ou mensagem bonita
+    public ResponseEntity<LoginResponse> login(
+            @RequestHeader("X-Tenant-ID") String tenant,
+            @RequestBody LoginRequest request
+    ) {
+        if (tenant == null || tenant.isBlank()) {
+            return ResponseEntity.badRequest().build();
         }
 
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.login(),
-                        request.senha()
-                )
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.login(), request.senha())
         );
 
         Usuario usuario = usuarioRepository
@@ -52,13 +49,10 @@ public class AuthController {
         String token = jwtService.gerarToken(usuario, tenant);
 
         UsuarioResponse usuarioResponse = new UsuarioResponse(
-                usuario.getId(),
-                usuario.getNome(),
-                usuario.getLogin(),
-                usuario.getPerfil(),
-                tenant
+                usuario.getId(), usuario.getNome(), usuario.getLogin(), usuario.getPerfil(), tenant
         );
 
         return ResponseEntity.ok(new LoginResponse(token, usuarioResponse));
     }
+
 }
