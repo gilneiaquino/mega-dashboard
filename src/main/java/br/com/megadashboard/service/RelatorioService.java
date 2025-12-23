@@ -118,7 +118,7 @@ public class RelatorioService {
 
         validarSql(rel.getSqlTexto());
 
-        Map<String, Object> paramsReq = request.parametros() != null
+        Map<String, Object> paramsReq = request != null && request.parametros() != null
                 ? request.parametros()
                 : Collections.emptyMap();
 
@@ -129,7 +129,7 @@ public class RelatorioService {
                 .collect(Collectors.toSet());
 
         for (String nomeParam : obrigatorios) {
-            if (!paramsReq.containsKey(nomeParam)) {
+            if (!paramsReq.containsKey(nomeParam) || paramsReq.get(nomeParam) == null) {
                 throw new IllegalArgumentException("Parâmetro obrigatório não informado: " + nomeParam);
             }
         }
@@ -151,11 +151,12 @@ public class RelatorioService {
         try {
             linhas = jdbcTemplate.queryForList(rel.getSqlTexto(), paramsFinal);
         } catch (DataAccessException e) {
-            throw new IllegalStateException("Erro ao executar relatório: " + e.getMessage(), e);
+            throw new IllegalStateException("Erro ao executar relatório: " + e.getMostSpecificCause().getMessage(), e);
         }
 
         return new ExecutarRelatorioResponse(rel.getTipo().name(), linhas);
     }
+
 
     // ========= Validação básica do SQL =========
 

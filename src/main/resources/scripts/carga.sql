@@ -49,8 +49,10 @@ SELECT
 SET @RELATORIO_ID := (
   SELECT id FROM relatorio
   WHERE tenant_id=@TENANT_ID AND nome='Relatório de Operações'
+  ORDER BY id DESC
   LIMIT 1
 );
+
 
 -- Dashboard Visão Geral
 INSERT INTO dashboard (nome, descricao, tenant_codigo, criado_por, ativo, data_criacao, data_atualizacao)
@@ -111,4 +113,16 @@ SELECT '2025-02-20', 2500.00, 'Operação cliente X', @TENANT_ID
 );
 
 
+INSERT INTO parametro_relatorio (nome, obrigatorio, tipo, relatorio_id)
+SELECT 'dataInicial', b'1', 'DATE', @RELATORIO_ID
+    WHERE NOT EXISTS (
+  SELECT 1 FROM parametro_relatorio
+  WHERE relatorio_id = @RELATORIO_ID AND nome = 'dataInicial'
+);
 
+INSERT INTO parametro_relatorio (nome, obrigatorio, tipo, relatorio_id)
+SELECT 'dataFinal', b'1', 'DATE', @RELATORIO_ID
+    WHERE NOT EXISTS (
+  SELECT 1 FROM parametro_relatorio
+  WHERE relatorio_id = @RELATORIO_ID AND nome = 'dataFinal'
+);

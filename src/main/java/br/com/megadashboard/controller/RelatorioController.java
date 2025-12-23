@@ -1,6 +1,7 @@
 package br.com.megadashboard.controller;
 
 import br.com.megadashboard.controller.dto.relatorio.*;
+import br.com.megadashboard.security.TenantContext;
 import br.com.megadashboard.service.RelatorioService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +39,8 @@ public class RelatorioController {
             @PathVariable Long id,
             @RequestBody ExecutarRelatorioRequest request
     ) {
+        String tenant = TenantContext.getTenant();
         return ResponseEntity.ok(relatorioService.executar(id, request));
     }
+
 }

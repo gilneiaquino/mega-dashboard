@@ -82,25 +82,31 @@ public class DashboardService {
     }
 
     private CardTipo toCardTipo(TipoDashboardItem tipo) {
-        // se os nomes forem iguais (KPI, CHART_BAR...), isso resolve 100%
-        return CardTipo.valueOf(tipo.name());
+        if (tipo == null) return null;
+
+        return switch (tipo) {
+            case KPI -> CardTipo.KPI;
+            case BARRA -> CardTipo.CHART_BAR;
+            case LINHA -> CardTipo.CHART_LINE;
+            case PIZZA -> CardTipo.CHART_PIE;
+        };
     }
 
     private Map<String, Object> renderCardData(DashboardItem item, String tenantCodigo) {
         CardTipo tipo = toCardTipo(item.getTipo());
 
         return switch (tipo) {
-            case KPI -> Map.of(
-                    "valor", 12345,
-                    "variacaoPct", 2.3,
-                    "meta", item.getMetaKpi()
-            );
+            case KPI -> Map.of("valor", 12345, "variacaoPct", 2.3);
+
             case CHART_BAR -> Map.of(
                     "labels", List.of("Ativo", "Atraso", "Liquidado"),
                     "series", List.of(Map.of("name", "Qtd", "values", List.of(10, 5, 20)))
             );
+
+            case CHART_LINE, CHART_PIE -> Map.of(); // Sprint 4: placeholder
         };
     }
+
 
     private void validarCriacao(DashboardRequest request) {
         if (request == null) {
