@@ -1,65 +1,60 @@
 package br.com.megadashboard.model;
 
+import br.com.megadashboard.model.TipoDashboardItem;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
 @Entity
 @Table(name = "dashboard_item")
-@Getter
-@Setter
+@Data
 public class DashboardItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Dashboard pai
-    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "dashboard_id", nullable = false)
     private Dashboard dashboard;
 
-    // título do gráfico ou KPI
+    // VOLTA pro enum do model (o seu Mapper já usa ele)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private TipoDashboardItem tipo;
+
     @Column(nullable = false, length = 150)
     private String titulo;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private TipoDashboardItem tipo;
+    @Column(nullable = false)
+    private Integer ordem;
 
-    // fonte: id do relatório (da tabela de relatórios que vc criou na Sprint 2)
+    @Column(name = "col_span", nullable = false)
+    private Integer colSpan = 3;
+
+    // ✅ Campos que o seu Mapper/Request já exigem
     @Column(name = "relatorio_id", nullable = false)
     private Long relatorioId;
 
-    // coluna que será usada como label (ex.: "mes", "agente", "pa")
-    @Column(name = "coluna_rotulo", nullable = false, length = 100)
+    @Column(name = "coluna_rotulo", nullable = false, length = 120)
     private String colunaRotulo;
 
-    // coluna que será usada como valor (ex.: "valorTotal", "quantidade")
-    @Column(name = "coluna_valor", nullable = false, length = 100)
+    @Column(name = "coluna_valor", nullable = false, length = 120)
     private String colunaValor;
 
-    // opcional: operação de agregação (SUM, COUNT, AVG…)
-    @Column(name = "agregacao", length = 20)
+    @Column(name = "agregacao", length = 30)
     private String agregacao;
 
-    // JSON com filtros pré-definidos para esse item (ex.: { "linhaCredito": 123, "pa": 10 })
-    @Lob
-    @Column(name = "filtro_json")
+    @Column(name = "filtro_json", columnDefinition = "TEXT")
     private String filtroJson;
 
-    // JSON de configurações visuais (cores, legenda, etc.) – o front interpreta
-    @Lob
-    @Column(name = "configuracao_visual_json")
+    @Column(name = "config_visual_json", columnDefinition = "TEXT")
     private String configuracaoVisualJson;
 
-    // ordem do item no dashboard
-    @Column(name = "ordem")
-    private Integer ordem;
-
-    // para KPI: valor alvo/meta (para comparar com o valor real)
     @Column(name = "meta_kpi")
     private Double metaKpi;
 
-    // getters / setters
+    @Column(nullable = false)
+    private Boolean ativo = Boolean.TRUE;
 }
