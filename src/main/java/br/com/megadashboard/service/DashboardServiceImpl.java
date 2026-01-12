@@ -10,6 +10,8 @@ import br.com.megadashboard.repository.DashboardItemRepository;
 import br.com.megadashboard.repository.DashboardRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,10 +24,14 @@ public class DashboardServiceImpl implements DashboardService {
     private final DashboardRepository dashboardRepository;
     private final DashboardItemRepository dashboardItemRepository;
 
+    private final NamedParameterJdbcTemplate jdbc;
+
     public DashboardServiceImpl(DashboardRepository dashboardRepository,
-                                DashboardItemRepository dashboardItemRepository) {
+                                DashboardItemRepository dashboardItemRepository,
+                                NamedParameterJdbcTemplate jdbc) {
         this.dashboardRepository = dashboardRepository;
         this.dashboardItemRepository = dashboardItemRepository;
+        this.jdbc = jdbc;
     }
 
     @Transactional
@@ -55,6 +61,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         return page.map(DashboardMapper::toResumoResponse);
     }
+
     @Transactional(readOnly = true)
     public DashboardRenderResponse render(Long dashboardId, String tenantCodigo) {
         Dashboard dash = dashboardRepository.findByIdAndTenantCodigo(dashboardId, tenantCodigo)
@@ -143,32 +150,110 @@ public class DashboardServiceImpl implements DashboardService {
         });
     }
 
-    public DashboardResumoRenderResponse resumo(String tenant, String dataInicio, String dataFim, String categoria, String status) {
+    @Override
+    public DashboardResumoRenderResponse resumo(String tenantCodigo,
+                                                String dataInicio,
+                                                String dataFim,
+                                                String categoria,
+                                                String status) {
 
-        // TODO: aqui depois você troca por queries reais usando filtro
+        Long tenantId = buscarTenantId(tenantCodigo);
 
-        var fisica = List.of(
-                new DashboardResumoRenderResponse.PieItem("Em dia", 120),
-                new DashboardResumoRenderResponse.PieItem("Atrasado", 35),
-                new DashboardResumoRenderResponse.PieItem("Em cobrança", 12)
+        var params = new MapSqlParameterSource();
+        params.addValue("tenantId", tenantId);
+        params.addValue("dataInicio", dataInicio); // yyyy-MM-dd (recomendado)
+        params.addValue("dataFim", dataFim);
+        params.addValue("categoria", categoria);
+        params.addValue("status", status);
+
+        // 1) Carteira Física (COUNT por status)
+        // Ajuste: o.status / o.categoria / o.data_operacao conforme seu schema
+        String sqlFisica = """
+                    SELECT 
+                      COALESCE(o.status, 'SEM_STATUS') AS label,
+                      COUNT(*) AS value
+                    FROM operacao o
+                    WHERE o.tenant_id = :tenantId
+                      AND (:dataInicio IS NULL OR o.data_operacao >= :dataInicio)
+                      AND (:dataFim IS NULL OR o.data_operacao <= :dataFim)
+                      AND (:categoria IS NULL OR o.categoria = :categoria)
+                      AND (:status IS NULL OR :status = 'TODOS' OR o.status = :status)
+                    GROUP BY o.status
+                    ORDER BY value DESC
+                """;
+
+        var carteiraFisica = jdbc.query(sqlFisica, params, (rs, i) ->
+                new DashboardResumoRenderResponse.PieItem(
+                        rs.getString("label"),
+                        rs.getLong("value")
+                )
         );
 
-        var financeira = List.of(
-                new DashboardResumoRenderResponse.PieItem("Saldo positivo", 80),
-                new DashboardResumoRenderResponse.PieItem("Saldo negativo", 20)
+        // 2) Carteira Financeira (SUM valor por status) – exemplo
+        // Se você não tiver status/categoria, pode agrupar por outra coluna.
+        String sqlFinanceira = """
+                    SELECT 
+                      COALESCE(o.status, 'SEM_STATUS') AS label,
+                      COALESCE(SUM(o.valor), 0) AS value
+                    FROM operacao o
+                    WHERE o.tenant_id = :tenantId
+                      AND (:dataInicio IS NULL OR o.data_operacao >= :dataInicio)
+                      AND (:dataFim IS NULL OR o.data_operacao <= :dataFim)
+                      AND (:categoria IS NULL OR o.categoria = :categoria)
+                      AND (:status IS NULL OR :status = 'TODOS' OR o.status = :status)
+                    GROUP BY o.status
+                    ORDER BY value DESC
+                """;
+
+        var carteiraFinanceira = jdbc.query(sqlFinanceira, params, (rs, i) ->
+                new DashboardResumoRenderResponse.PieItem(
+                        rs.getString("label"),
+                        rs.getBigDecimal("value") // Number ok
+                )
         );
 
-        var evolucao = List.of(
-                new DashboardResumoRenderResponse.BarItem("Jan", List.of(
-                        new DashboardResumoRenderResponse.BarSerieItem("Operações", 10),
-                        new DashboardResumoRenderResponse.BarSerieItem("Valor", 20000)
-                )),
-                new DashboardResumoRenderResponse.BarItem("Fev", List.of(
-                        new DashboardResumoRenderResponse.BarSerieItem("Operações", 14),
-                        new DashboardResumoRenderResponse.BarSerieItem("Valor", 26000)
-                ))
-        );
+        // 3) Evolução mensal (COUNT + SUM no mesmo mês)
+        // MySQL: DATE_FORMAT(data_operacao, '%Y-%m') dá o "label"
+        String sqlEvolucao = """
+                    SELECT
+                      DATE_FORMAT(o.data_operacao, '%Y-%m') AS mes,
+                      COUNT(*) AS qtd,
+                      COALESCE(SUM(o.valor), 0) AS total
+                    FROM operacao o
+                    WHERE o.tenant_id = :tenantId
+                      AND (:dataInicio IS NULL OR o.data_operacao >= :dataInicio)
+                      AND (:dataFim IS NULL OR o.data_operacao <= :dataFim)
+                      AND (:categoria IS NULL OR o.categoria = :categoria)
+                      AND (:status IS NULL OR :status = 'TODOS' OR o.status = :status)
+                    GROUP BY DATE_FORMAT(o.data_operacao, '%Y-%m')
+                    ORDER BY mes ASC
+                """;
 
-        return new DashboardResumoRenderResponse(fisica, financeira, evolucao);
+        var evolucao = jdbc.query(sqlEvolucao, params, (rs, i) -> {
+            String mes = rs.getString("mes");
+            long qtd = rs.getLong("qtd");
+            var total = rs.getBigDecimal("total");
+
+            return new DashboardResumoRenderResponse.BarItem(
+                    mes,
+                    List.of(
+                            new DashboardResumoRenderResponse.BarSerieItem("Operações", qtd),
+                            new DashboardResumoRenderResponse.BarSerieItem("Valor", total)
+                    )
+            );
+        });
+
+        return new DashboardResumoRenderResponse(carteiraFisica, carteiraFinanceira, evolucao);
     }
+
+    private Long buscarTenantId(String tenantCodigo) {
+        String sql = "SELECT id FROM tenant WHERE codigo = :codigo";
+        var params = new MapSqlParameterSource("codigo", tenantCodigo);
+
+        return jdbc.query(sql, params, rs -> {
+            if (rs.next()) return rs.getLong("id");
+            throw new IllegalArgumentException("Tenant não encontrado: " + tenantCodigo);
+        });
+    }
+
 }
