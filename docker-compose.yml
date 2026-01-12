@@ -51,6 +51,12 @@ services:
       MYSQL_PASSWORD: 12345
     ports:
       - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p12345" ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
     networks:
       - megared
 
@@ -58,8 +64,10 @@ services:
     build: .
     container_name: mega-dashboard-app
     depends_on:
-      - kafka
-      - mysql
+      kafka:
+        condition: service_started
+      mysql:
+        condition: service_healthy
     ports:
       - "8080:8080"
       - "5005:5005"
